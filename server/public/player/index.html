@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReproductorPro — Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/shared.css">
+  <link rel="stylesheet" href="/player/player.css">
+</head>
+<body>
+  <div id="player-app">
+    <!-- Video Container -->
+    <div id="video-wrapper" class="video-wrapper">
+      <!-- Player container (adapters inject iframe here) -->
+      <div id="player-container"></div>
+
+      <!-- Click-to-start overlay (autoplay policy) -->
+      <div id="start-overlay" class="start-overlay">
+        <div class="overlay-content">
+          <div class="play-icon">&#9654;</div>
+          <p>Haz clic para comenzar</p>
+        </div>
+      </div>
+
+      <!-- Error overlay -->
+      <div id="error-overlay" class="error-overlay hidden">
+        <div class="overlay-content">
+          <p class="error-icon">&#9888;</p>
+          <p id="error-message">Error al cargar el video</p>
+          <p class="text-muted">El siguiente video comenzará automáticamente</p>
+        </div>
+      </div>
+
+      <!-- Buffering indicator -->
+      <div id="buffering-indicator" class="buffering-indicator hidden">
+        <div class="spinner"></div>
+      </div>
+    </div>
+
+    <!-- Controls Bar -->
+    <div id="controls-bar" class="controls-bar">
+      <div class="controls-left">
+        <button id="mute-btn" class="btn btn-icon btn-secondary" title="Silenciar/Activar sonido" aria-label="Silenciar">
+          <span id="mute-icon">&#128266;</span>
+        </button>
+        <input
+          id="volume-slider"
+          type="range"
+          min="0"
+          max="100"
+          value="80"
+          class="volume-slider"
+          title="Volumen"
+          aria-label="Volumen"
+        >
+      </div>
+
+      <div class="controls-center">
+        <span id="current-time" class="time-display">0:00</span>
+        <span class="time-separator">/</span>
+        <span id="duration" class="time-display">0:00</span>
+      </div>
+
+      <div class="controls-right">
+        <span id="status-badge" class="badge badge-idle">Esperando</span>
+      </div>
+    </div>
+
+    <!-- Video Info -->
+    <div id="video-info" class="video-info">
+      <h2 id="video-title" class="video-title">Sin video en reproducción</h2>
+      <p id="video-source" class="video-source text-muted"></p>
+    </div>
+
+    <!-- Economic Data Strip -->
+    <div id="economic-strip" class="economic-strip">
+      <span class="eco-item">
+        <span class="eco-label">USD</span>
+        <span id="eco-usd" class="eco-value">—</span>
+        <span id="eco-usd-change" class="eco-change"></span>
+      </span>
+      <span class="eco-separator">│</span>
+      <span class="eco-item">
+        <span class="eco-label">EUR</span>
+        <span id="eco-eur" class="eco-value">—</span>
+        <span id="eco-eur-change" class="eco-change"></span>
+      </span>
+      <span class="eco-separator">│</span>
+      <span class="eco-item">
+        <span class="eco-label">BTC</span>
+        <span id="eco-btc" class="eco-value">—</span>
+        <span id="eco-btc-change" class="eco-change"></span>
+      </span>
+      <span id="eco-updated" class="eco-updated text-muted"></span>
+    </div>
+
+    <!-- Connection Status -->
+    <div id="connection-status" class="connection-status">
+      <span id="connection-dot" class="connection-dot disconnected"></span>
+      <span id="connection-text" class="text-muted">Conectando...</span>
+    </div>
+  </div>
+
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Player Application -->
+  <script src="/player/player.js"></script>
+</body>
+</html>

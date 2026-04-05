@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReproductorPro — Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/shared.css">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+  <div id="admin-app">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-screen">
+      <div class="login-card">
+        <h1 class="login-title">ReproductorPro</h1>
+        <p class="login-subtitle">Panel de Administración</p>
+        <form id="login-form" class="login-form">
+          <div class="form-group">
+            <label for="admin-password">Contraseña</label>
+            <input
+              type="password"
+              id="admin-password"
+              class="form-input"
+              placeholder="Ingresa la contraseña"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Ingresar</button>
+          <p id="login-error" class="login-error hidden">Contraseña incorrecta</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Dashboard (hidden until authenticated) -->
+    <div id="dashboard" class="dashboard hidden">
+
+      <!-- Header -->
+      <header class="admin-header">
+        <div class="header-left">
+          <h1 class="admin-logo">ReproductorPro</h1>
+          <span class="badge badge-admin">Admin</span>
+        </div>
+        <div class="header-right">
+          <span id="client-count" class="client-count">
+            <span class="client-dot"></span>
+            <span id="client-count-text">0</span> espectadores
+          </span>
+          <button id="logout-btn" class="btn btn-secondary btn-sm">Salir</button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="admin-main">
+
+        <!-- Add Video Card -->
+        <section class="card">
+          <h2 class="card-title">Agregar Video</h2>
+          <form id="add-video-form" class="add-video-form">
+            <div class="form-row">
+              <div class="form-group flex-grow">
+                <label for="video-title">Título</label>
+                <input
+                  type="text"
+                  id="video-title"
+                  class="form-input"
+                  placeholder="Nombre del video"
+                  maxlength="200"
+                  required
+                >
+              </div>
+              <div class="form-group flex-grow">
+                <label for="video-url">URL</label>
+                <input
+                  type="url"
+                  id="video-url"
+                  class="form-input"
+                  placeholder="https://youtube.com/watch?v=..."
+                  required
+                >
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="video-type">Plataforma</label>
+                <select id="video-type" class="form-select" required>
+                  <option value="youtube">YouTube</option>
+                  <option value="dailymotion">Dailymotion</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="video-duration">Duración (segundos)</label>
+                <input
+                  type="number"
+                  id="video-duration"
+                  class="form-input"
+                  placeholder="300"
+                  min="1"
+                  required
+                >
+              </div>
+              <div class="form-group form-group-btn">
+                <label>&nbsp;</label>
+                <button type="submit" id="add-btn" class="btn btn-primary">
+                  Agregar a la playlist
+                </button>
+              </div>
+            </div>
+          </form>
+          <p id="form-feedback" class="form-feedback hidden"></p>
+        </section>
+
+        <!-- Playlist Card -->
+        <section class="card">
+          <div class="card-header">
+            <h2 class="card-title">Playlist</h2>
+            <span id="playlist-count" class="playlist-count">0 videos</span>
+          </div>
+          <div id="playlist-empty" class="playlist-empty">
+            <p>No hay videos en la playlist</p>
+            <p class="text-muted">Agrega un video para comenzar</p>
+          </div>
+          <table id="playlist-table" class="playlist-table hidden">
+            <thead>
+              <tr>
+                <th class="col-order">#</th>
+                <th class="col-drag"></th>
+                <th class="col-title">Título</th>
+                <th class="col-duration">Duración</th>
+                <th class="col-source">Fuente</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="playlist-body">
+              <!-- Rows rendered by JS -->
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Playback Status Card -->
+        <section class="card">
+          <h2 class="card-title">Reproducción</h2>
+          <div id="playback-info" class="playback-info">
+            <div class="playback-now">
+              <span class="playback-label">Reproduciendo:</span>
+              <span id="playback-video" class="playback-video">Sin video</span>
+            </div>
+            <div class="playback-details">
+              <span id="playback-position" class="playback-position">0:00</span>
+              <span class="playback-separator">/</span>
+              <span id="playback-duration" class="playback-duration">0:00</span>
+              <span id="playback-status" class="badge badge-idle">Esperando</span>
+            </div>
+          </div>
+          <div class="playback-controls">
+            <button id="play-btn" class="btn btn-success" title="Reproducir">
+              &#9654; Play
+            </button>
+            <button id="pause-btn" class="btn btn-secondary" title="Pausar">
+              &#9208; Pausa
+            </button>
+            <button id="skip-btn" class="btn btn-secondary" title="Siguiente video">
+              &#9197; Siguiente
+            </button>
+          </div>
+        </section>
+
+      </main>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="edit-modal" class="modal hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Editar Video</h3>
+          <button id="modal-close" class="modal-close-btn">&times;</button>
+        </div>
+        <form id="edit-form" class="edit-form">
+          <input type="hidden" id="edit-id">
+          <div class="form-group">
+            <label for="edit-title">Título</label>
+            <input type="text" id="edit-title" class="form-input" maxlength="200" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-url">URL</label>
+            <input type="url" id="edit-url" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label for="edit-duration">Duración (segundos)</label>
+            <input type="number" id="edit-duration" class="form-input" min="1" required>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="edit-cancel" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" id="edit-save" class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Socket.IO Client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- Admin Application -->
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
