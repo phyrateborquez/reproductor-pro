@@ -14,58 +14,71 @@ if (!config.adminPassword) {
   process.exit(1);
 }
 
-// Create Express app
-const syncEngine = new SyncEngine();
-const playlistManager = new PlaylistManager(syncEngine);
-const app = createApp(syncEngine, playlistManager);
+async function start() {
+  // Initialize database (async for sql.js)
+  console.log('[db] Initializing database...');
+  await db.initDatabase();
+  console.log('[db] Database initialized');
 
-// Create HTTP server
-const server = http.createServer(app);
+  // Create HTTP server first
+  const server = http.createServer();
 
-// Attach Socket.IO
-const io = new Server(server, {
-  cors: {
-    origin: config.allowedOrigins,
-    methods: ['GET', 'POST'],
-  },
-  pingInterval: 10000,
-  pingTimeout: 5000,
-  transports: ['websocket', 'polling'],
-});
-
-// Wire socket handlers
-createSocketHandlers(io, syncEngine);
-
-// Start sync engine
-syncEngine.start();
-
-// Start economic data auto-fetch
-economicService.startAutoFetch();
-
-// Start listening
-server.listen(config.port, () => {
-  console.log(`[server] Listening on port ${config.port} (${config.nodeEnv})`);
-  console.log(`[server] Admin: http://localhost:${config.port}/admin`);
-  console.log(`[server] Player: http://localhost:${config.port}/player`);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('[server] SIGTERM received, shutting down...');
-  syncEngine.stop();
-  server.close(() => {
-    db.close();
-    process.exit(0);
+  // Attach Socket.IO first (so we can pass it to syncEngine)
+  const io = new Server(server, {
+    cors: {
+      origin: config.allowedOrigins,
+      methods: ['GET', 'POST'],
+    },
+    pingInterval: 10000,
+    pingTimeout: 5000,
+    transports: ['websocket', 'polling'],
   });
-});
 
-process.on('SIGINT', () => {
-  console.log('[server] SIGINT received, shutting down...');
-  syncEngine.stop();
-  server.close(() => {
-    db.close();
-    process.exit(0);
+  // Create Express app
+  const syncEngine = new SyncEngine(io);
+  const playlistManager = new PlaylistManager(syncEngine);
+  const app = createApp(syncEngine, playlistManager);
+
+  // Wire socket handlers
+  createSocketHandlers(io, syncEngine);
+
+  // Start sync engine
+  syncEngine.start();
+
+  // Start economic data auto-fetch
+  economicService.startAutoFetch();
+
+  // Attach Express to HTTP server
+  server.on('request', app);
+
+  // Start listening
+  server.listen(config.port, () => {
+    console.log(`[server] Listening on port ${config.port} (${config.nodeEnv})`);
+    console.log(`[server] Admin: http://localhost:${config.port}/admin`);
+    console.log(`[server] Player: http://localhost:${config.port}/player`);
   });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('[server] SIGTERM received, shutting down...');
+    syncEngine.stop();
+    server.close(() => {
+      process.exit(0);
+    });
+  });
+
+  process.on('SIGINT', () => {
+    console.log('[server] SIGINT received, shutting down...');
+    syncEngine.stop();
+    server.close(() => {
+      process.exit(0);
+    });
+  });
+}
+
+start().catch(err => {
+  console.error('[server] Failed to start:', err);
+  process.exit(1);
 });
 
-module.exports = { app, server, io, syncEngine };
+module.exports = { };

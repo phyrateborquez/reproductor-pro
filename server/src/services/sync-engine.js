@@ -23,13 +23,13 @@ class SyncEngine {
     // Load persisted state
     const saved = playbackRepo.get();
     if (saved?.current_video_id) {
-      this.state.currentVideo = playlistRepo.getById.get(saved.current_video_id);
+      this.state.currentVideo = playlistRepo.getById(saved.current_video_id);
       this.state.position = saved.position;
       this.state.isPlaying = saved.is_playing === 1;
     }
 
     // Load playlist
-    this.state.playlist = playlistRepo.getAll.all();
+    this.state.playlist = playlistRepo.getAll();
 
     // Start the leader loop
     this.loopInterval = setInterval(() => this._tick(), 1000);
@@ -78,12 +78,12 @@ class SyncEngine {
   }
 
   _advanceVideo() {
-    const next = playlistRepo.getNext.get(this.state.currentVideo.order_index);
+    const next = playlistRepo.getNext(this.state.currentVideo.order_index);
     if (next) {
       this.state.currentVideo = next;
     } else {
       // Loop: go back to first video
-      this.state.currentVideo = playlistRepo.getFirst.get();
+      this.state.currentVideo = playlistRepo.getFirst();
     }
 
     if (!this.state.currentVideo) {
@@ -116,22 +116,21 @@ class SyncEngine {
   }
 
   _persistState() {
-    playbackRepo.upsert.run(
-      1,
+    playbackRepo.upsert(
       this.state.currentVideo?.id || null,
       this.state.position,
-      this.state.isPlaying ? 1 : 0
+      this.state.isPlaying
     );
   }
 
   updatePlaylist() {
-    this.state.playlist = playlistRepo.getAll.all();
+    this.state.playlist = playlistRepo.getAll();
     this.io.emit('playlist:update', { playlist: this.state.playlist });
   }
 
   play() {
     if (!this.state.currentVideo) {
-      const first = playlistRepo.getFirst.get();
+      const first = playlistRepo.getFirst();
       if (!first) return false;
       this.state.currentVideo = first;
       this.state.position = 0;

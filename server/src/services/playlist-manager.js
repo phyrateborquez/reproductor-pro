@@ -6,8 +6,7 @@ class PlaylistManager {
   }
 
   async addVideo(title, sourceUrl, sourceType, duration) {
-    const result = playlistRepo.insert.run(title, sourceUrl, sourceType, duration);
-    const video = playlistRepo.getById.get(result.lastInsertRowid);
+    const video = playlistRepo.insert(title, sourceUrl, sourceType, duration);
     // Update sync engine playlist
     if (this.syncEngine) {
       this.syncEngine.updatePlaylist();
@@ -16,40 +15,40 @@ class PlaylistManager {
   }
 
   async updateVideo(id, updates) {
-    const existing = playlistRepo.getById.get(id);
+    const existing = playlistRepo.getById(id);
     if (!existing) {
       throw new Error('Video not found');
     }
-    playlistRepo.update.run(
+    const video = playlistRepo.update(
+      id,
       updates.title || existing.title,
       updates.source_url || existing.source_url,
       updates.source_type || existing.source_type,
-      updates.duration || existing.duration,
-      id
+      updates.duration || existing.duration
     );
     if (this.syncEngine) {
       this.syncEngine.updatePlaylist();
     }
-    return playlistRepo.getById.get(id);
+    return video;
   }
 
   async removeVideo(id) {
-    const existing = playlistRepo.getById.get(id);
+    const existing = playlistRepo.getById(id);
     if (!existing) {
       throw new Error('Video not found');
     }
-    playlistRepo.delete.run(id);
+    playlistRepo.delete(id);
     if (this.syncEngine) {
       this.syncEngine.updatePlaylist();
     }
   }
 
   async reorderVideo(id, newOrderIndex) {
-    const existing = playlistRepo.getById.get(id);
+    const existing = playlistRepo.getById(id);
     if (!existing) {
       throw new Error('Video not found');
     }
-    playlistRepo.reorder.run(newOrderIndex, id);
+    playlistRepo.reorder(id, newOrderIndex);
     if (this.syncEngine) {
       this.syncEngine.updatePlaylist();
     }
@@ -68,15 +67,15 @@ class PlaylistManager {
   }
 
   getPlaylist() {
-    return playlistRepo.getAll.all();
+    return playlistRepo.getAll();
   }
 
   getNextVideo(currentOrderIndex) {
-    return playlistRepo.getNext.get(currentOrderIndex);
+    return playlistRepo.getNext(currentOrderIndex);
   }
 
   getFirstVideo() {
-    return playlistRepo.getFirst.get();
+    return playlistRepo.getFirst();
   }
 }
 
