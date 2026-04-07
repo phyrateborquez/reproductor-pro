@@ -29,12 +29,18 @@ async function initDatabase() {
     console.log('[db] Conectado a SQLite local:', config.dbPath);
   }
 
-  // Ejecutar migración inicial (CREATE TABLE IF NOT EXISTS — idempotente)
+  // Ejecutar migración: separar los statements y ejecutarlos uno por uno
+  // (más robusto que executeMultiple que puede fallar dependiendo de la versión)
   const migrationPath = path.join(__dirname, 'migrations', '001_initial.sql');
   const migration = fs.readFileSync(migrationPath, 'utf8');
+  const statements = migration
+    .split(';')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
 
-  // Turso ejecuta scripts multi-statement como transacción con executeMultiple
-  await client.executeMultiple(migration);
+  for (const statement of statements) {
+    await client.execute(statement);
+  }
 
   console.log('[db] Migraciones aplicadas correctamente');
   return client;
