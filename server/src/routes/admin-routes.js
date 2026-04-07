@@ -15,7 +15,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // ================================================================
-  // CRIT-02: Rutas de Autenticación con Sesiones + Cookies HttpOnly
+  // CRIT-02: Rutas de Autenticación (NO protegidas por sesión)
   // ================================================================
 
   // POST /api/auth/login — Verifica contraseña y crea sesión
@@ -31,7 +31,6 @@ function createAdminRoutes(playlistManager, syncEngine) {
       return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
 
-    // Regenerar el ID de sesión al autenticar (previene Session Fixation)
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: 'Error al crear sesión' });
       req.session.isAdmin = true;
@@ -40,7 +39,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
     });
   });
 
-  // POST /api/auth/logout — Destruye la sesión y borra la cookie
+  // POST /api/auth/logout — Destruye la sesión
   router.post('/api/auth/logout', (req, res) => {
     req.session.destroy((err) => {
       if (err) return res.status(500).json({ error: 'Error al cerrar sesión' });
@@ -49,7 +48,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
     });
   });
 
-  // GET /api/auth/status — Verifica si hay sesión activa (para checkAuth en frontend)
+  // GET /api/auth/status — Estado de autenticación
   router.get('/api/auth/status', (req, res) => {
     if (req.session && req.session.isAdmin === true) {
       return res.json({ authenticated: true });
@@ -58,12 +57,13 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // ================================================================
-  // Rutas de API — todas protegidas por sesión
+  // API protegida — todas las rutas de aquí hacia abajo requieren sesión
+  // IMPORTANTE: Las rutas estáticas VAN ANTES que las dinámicas (:id)
+  // para evitar ERR_HTTP_HEADERS_SENT
   // ================================================================
-  router.use('/api', requireAuth);
 
   // GET /api/playlist
-  router.get('/api/playlist', async (req, res) => {
+  router.get('/api/playlist', requireAuth, async (req, res) => {
     try {
       const playlist = await playlistManager.getPlaylist();
       res.json(playlist);
@@ -74,7 +74,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // POST /api/playlist — Agregar video
-  router.post('/api/playlist', validateVideoBody, async (req, res) => {
+  router.post('/api/playlist', requireAuth, validateVideoBody, async (req, res) => {
     try {
       const { title, source_url, source_type, duration } = req.body;
       const video = await playlistManager.addVideo(title, source_url, source_type, duration);
@@ -85,8 +85,23 @@ function createAdminRoutes(playlistManager, syncEngine) {
     }
   });
 
-  // PUT /api/playlist/:id — Actualizar metadata
-  router.put('/api/playlist/:id', validateVideoBody, async (req, res) => {
+  // ⚠️ RUTA ESTÁTICA ANTES QUE DINÁMICA — evita que /api/playlist/reorder
+  // sea capturada por /api/playlist/:id
+  router.put('/api/playlist/reorder', requireAuth, async (req, res) => {
+    try {
+      if (!Array.isArray(req.body)) {
+        return res.status(400).json({ error: 'El body debe ser un array de {id, orderIndex}' });
+      }
+      await playlistManager.reorderPlaylist(req.body);
+      res.status(204).send();
+    } catch (err) {
+      console.error('[routes] Error al reordenar:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
+
+  // PUT /api/playlist/:id — Actualizar metadata (DESPUÉS de la ruta estática)
+  router.put('/api/playlist/:id', requireAuth, validateVideoBody, async (req, res) => {
     try {
       const video = await playlistManager.updateVideo(
         parseInt(req.params.id, 10),
@@ -103,7 +118,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // DELETE /api/playlist/:id
-  router.delete('/api/playlist/:id', async (req, res) => {
+  router.delete('/api/playlist/:id', requireAuth, async (req, res) => {
     try {
       await playlistManager.removeVideo(parseInt(req.params.id, 10));
       res.status(204).send();
@@ -116,27 +131,13 @@ function createAdminRoutes(playlistManager, syncEngine) {
     }
   });
 
-  // PUT /api/playlist/reorder
-  router.put('/api/playlist/reorder', async (req, res) => {
-    try {
-      if (!Array.isArray(req.body)) {
-        return res.status(400).json({ error: 'El body debe ser un array de {id, orderIndex}' });
-      }
-      await playlistManager.reorderPlaylist(req.body);
-      res.status(204).send();
-    } catch (err) {
-      console.error('[routes] Error al reordenar:', err);
-      res.status(500).json({ error: 'Error interno del servidor' });
-    }
-  });
-
   // GET /api/playback
-  router.get('/api/playback', (req, res) => {
+  router.get('/api/playback', requireAuth, (req, res) => {
     res.json(syncEngine.getState());
   });
 
   // POST /api/playback/play
-  router.post('/api/playback/play', async (req, res) => {
+  router.post('/api/playback/play', requireAuth, async (req, res) => {
     try {
       const started = await syncEngine.play();
       if (!started) {
@@ -150,7 +151,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // POST /api/playback/pause
-  router.post('/api/playback/pause', async (req, res) => {
+  router.post('/api/playback/pause', requireAuth, async (req, res) => {
     try {
       await syncEngine.pause();
       res.json(syncEngine.getState());
@@ -161,7 +162,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // POST /api/playback/skip
-  router.post('/api/playback/skip', async (req, res) => {
+  router.post('/api/playback/skip', requireAuth, async (req, res) => {
     try {
       await syncEngine.skip();
       res.json(syncEngine.getState());
@@ -172,7 +173,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // POST /api/playback/seek
-  router.post('/api/playback/seek', async (req, res) => {
+  router.post('/api/playback/seek', requireAuth, async (req, res) => {
     try {
       const position = parseFloat(req.body.position);
       if (isNaN(position) || position < 0) {

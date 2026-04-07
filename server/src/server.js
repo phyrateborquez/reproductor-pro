@@ -4,7 +4,6 @@ const config = require('./config');
 const db = require('./db');
 const SyncEngine = require('./services/sync-engine');
 const PlaylistManager = require('./services/playlist-manager');
-const economicService = require('./services/economic-service');
 const createApp = require('./app');
 const createSocketHandlers = require('./sockets/socket-handler');
 
@@ -23,7 +22,7 @@ async function start() {
   // Create HTTP server first
   const server = http.createServer();
 
-  // Attach Socket.IO first (so we can pass it to syncEngine)
+  // Attach Socket.IO
   const io = new Server(server, {
     cors: {
       origin: config.allowedOrigins,
@@ -43,11 +42,8 @@ async function start() {
   // Wire socket handlers
   createSocketHandlers(io, syncEngine);
 
-  // Start sync engine (now async)
+  // Start sync engine (async — loads state from Turso)
   await syncEngine.start();
-
-  // Start economic data auto-fetch
-  economicService.startAutoFetch();
 
   // Attach Express to HTTP server
   server.on('request', app);
@@ -63,17 +59,13 @@ async function start() {
   process.on('SIGTERM', () => {
     console.log('[server] SIGTERM received, shutting down...');
     syncEngine.stop();
-    server.close(() => {
-      process.exit(0);
-    });
+    server.close(() => process.exit(0));
   });
 
   process.on('SIGINT', () => {
     console.log('[server] SIGINT received, shutting down...');
     syncEngine.stop();
-    server.close(() => {
-      process.exit(0);
-    });
+    server.close(() => process.exit(0));
   });
 }
 

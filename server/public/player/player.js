@@ -336,87 +336,6 @@ function createPlayer(sourceType, container, videoId) {
 }
 
 /* ============================================================
-   4. Economic Data Strip
-   ============================================================ */
-class EconomicStrip {
-  constructor() {
-    this.usdEl = document.getElementById('eco-usd');
-    this.usdChangeEl = document.getElementById('eco-usd-change');
-    this.eurEl = document.getElementById('eco-eur');
-    this.eurChangeEl = document.getElementById('eco-eur-change');
-    this.btcEl = document.getElementById('eco-btc');
-    this.btcChangeEl = document.getElementById('eco-btc-change');
-    this.updatedEl = document.getElementById('eco-updated');
-    this.stripEl = document.getElementById('economic-strip');
-  }
-
-  async update() {
-    try {
-      const res = await fetch('/api/economic');
-      if (!res.ok) return;
-      const data = await res.json();
-      this.render(data);
-    } catch {
-      // Silently fail — economic data is not critical
-    }
-  }
-
-  render(data) {
-    if (!data) return;
-
-    this._setValue(this.usdEl, data.usd?.value);
-    this._setChange(this.usdChangeEl, data.usd?.change);
-
-    this._setValue(this.eurEl, data.eur?.value);
-    this._setChange(this.eurChangeEl, data.eur?.change);
-
-    this._setValue(this.btcEl, data.btc?.value);
-    this._setChange(this.btcChangeEl, data.btc?.change);
-
-    if (data.lastUpdated) {
-      const time = new Date(data.lastUpdated).toLocaleTimeString('es', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      this.updatedEl.textContent = `Actualizado ${time}`;
-    }
-
-    // Flash animation
-    this.stripEl.classList.remove('eco-flash');
-    void this.stripEl.offsetWidth; // Force reflow
-    this.stripEl.classList.add('eco-flash');
-  }
-
-  _setValue(el, value) {
-    if (value == null) {
-      el.textContent = '—';
-      return;
-    }
-    if (value >= 1000) {
-      el.textContent = '$' + value.toLocaleString('en', { maximumFractionDigits: 0 });
-    } else {
-      el.textContent = '$' + value.toFixed(2);
-    }
-  }
-
-  _setChange(el, change) {
-    if (change == null) {
-      el.textContent = '';
-      el.className = 'eco-change';
-      return;
-    }
-    const sign = change >= 0 ? '+' : '';
-    el.textContent = `(${sign}${change.toFixed(2)}%)`;
-    el.className = `eco-change ${change >= 0 ? 'positive' : 'negative'}`;
-  }
-
-  startPolling(intervalMs = 60000) {
-    this.update();
-    setInterval(() => this.update(), intervalMs);
-  }
-}
-
-/* ============================================================
    5. Format Utilities
    ============================================================ */
 function formatTime(seconds) {
@@ -465,9 +384,6 @@ class PlayerApp {
     this._wasConnected = false; // Track if this is a reconnect
     this._lastPosition = 0; // Last known position for reconnect
     this._timeUpdateInterval = null; // Separate timer for fluid time display
-
-    // Economic strip
-    this.economicStrip = new EconomicStrip();
 
     this._bindEvents();
     this._connectSocket();
@@ -817,17 +733,11 @@ class PlayerApp {
     return null;
   }
 
-  /* --- Start Economic Strip --- */
-  startEconomicStrip() {
-    this.economicStrip.startPolling(60000);
-  }
 }
 
 /* ============================================================
    7. Initialize Application
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  const app = new PlayerApp();
-  app.startEconomicStrip();
-  window.__playerApp = app; // Debug access
+  new PlayerApp();
 });
