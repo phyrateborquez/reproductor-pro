@@ -19,10 +19,17 @@ async function start() {
   await db.initDatabase();
   console.log('[db] Database initialized');
 
-  // Create HTTP server first
-  const server = http.createServer();
+  // Crear servicios primero (necesarios para pasarlos a createApp)
+  const syncEngine = new SyncEngine(null); // io se asigna después
+  const playlistManager = new PlaylistManager(syncEngine);
 
-  // Attach Socket.IO
+  // ✅ ORDEN CORRECTO: crear el servidor HTTP con Express desde el inicio.
+  // Esto evita ERR_HTTP_HEADERS_SENT que ocurre cuando Socket.IO y Express
+  // comparten el mismo servidor usando server.on('request', app).
+  const app = createApp(syncEngine, playlistManager);
+  const server = http.createServer(app);
+
+  // Adjuntar Socket.IO al servidor HTTP ya existente
   const io = new Server(server, {
     cors: {
       origin: config.allowedOrigins,
@@ -34,19 +41,14 @@ async function start() {
     transports: ['websocket', 'polling'],
   });
 
-  // Create services
-  const syncEngine = new SyncEngine(io);
-  const playlistManager = new PlaylistManager(syncEngine);
-  const app = createApp(syncEngine, playlistManager);
+  // Asignar io al syncEngine ahora que ya existe
+  syncEngine.io = io;
 
   // Wire socket handlers
   createSocketHandlers(io, syncEngine);
 
   // Start sync engine (async — loads state from Turso)
   await syncEngine.start();
-
-  // Attach Express to HTTP server
-  server.on('request', app);
 
   // Start listening
   server.listen(config.port, () => {
