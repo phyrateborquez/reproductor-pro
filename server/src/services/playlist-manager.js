@@ -37,6 +37,15 @@ class PlaylistManager {
     if (!existing) {
       throw new Error('Video not found');
     }
+
+    // Si el video a borrar es el que se está reproduciendo, pasamos al siguiente primero
+    // Esto evita un error de restricción de llave foránea (Foreign Key) en Turso
+    if (this.syncEngine && this.syncEngine.state.currentVideo && this.syncEngine.state.currentVideo.id === id) {
+      await this.syncEngine._advanceVideo();
+      // Pequeña pausa para asegurar que el estado se liberó
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     await playlistRepo.delete(id);
     if (this.syncEngine) {
       await this.syncEngine.updatePlaylist();

@@ -61,15 +61,28 @@ async function run(sql, params = []) {
  */
 async function get(sql, params = []) {
   const result = await client.execute({ sql, args: params });
-  return result.rows.length > 0 ? result.rows[0] : null;
+  if (result.rows.length === 0) return null;
+  
+  const row = result.rows[0];
+  const obj = {};
+  result.columns.forEach((col, i) => {
+    obj[col] = row[i];
+  });
+  return obj;
 }
 
 /**
- * Obtiene todas las filas del resultado.
+ * Obtiene todas las filas del resultado mapeadas a objetos.
  */
 async function all(sql, params = []) {
   const result = await client.execute({ sql, args: params });
-  return result.rows;
+  return result.rows.map(row => {
+    const obj = {};
+    result.columns.forEach((col, i) => {
+      obj[col] = row[i];
+    });
+    return obj;
+  });
 }
 
 module.exports = {
