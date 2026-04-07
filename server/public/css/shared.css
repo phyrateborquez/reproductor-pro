@@ -5,12 +5,12 @@
 
 /* --- CSS Custom Properties --- */
 :root {
-  --color-bg: #0d0d0d;
-  --color-surface: #1a1a1a;
-  --color-surface-hover: #252525;
-  --color-border: #333333;
-  --color-text: #e0e0e0;
-  --color-text-muted: #888888;
+  --color-bg: #020617; /* Slate-950 para match total con FuturoAlternativo */
+  --color-surface: #0f172a;
+  --color-surface-hover: #1e293b;
+  --color-border: #334155;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
   --color-accent: #e53935;
   --color-accent-hover: #c62828;
   --color-success: #43a047;
@@ -43,18 +43,17 @@
   padding: 0;
 }
 
-html {
-  font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+html,
+body {
+  overflow: hidden; /* Elimina scrollbars en el iframe */
+  background-color: var(--color-bg);
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--color-bg);
   color: var(--color-text);
   line-height: 1.6;
-  min-height: 100vh;
+  width: 100%;
 }
 
 a {
