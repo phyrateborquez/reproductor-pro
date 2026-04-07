@@ -11,6 +11,10 @@ const createPublicRoutes = require('./routes/public-routes');
 function createApp(syncEngine, playlistManager) {
   const app = express();
 
+  // Es crítico para Render: permite que Express confíe en el balanceador de carga
+  // y envíe las cookies marcadas como "Secure"
+  app.set('trust proxy', 1);
+
   // ================================================================
   // HELMET (CRIT-03) — Headers de seguridad HTTP
   // Configura CSP, X-Frame-Options, HSTS, etc.
