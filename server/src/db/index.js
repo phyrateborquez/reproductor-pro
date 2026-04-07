@@ -57,32 +57,34 @@ async function run(sql, params = []) {
 }
 
 /**
- * Obtiene la primera fila del resultado, o null si no hay resultados.
+ * Convierte una Row de libSQL a un objeto JS plano.
+ * libSQL rows soportan acceso por nombre de columna y por índice.
  */
-async function get(sql, params = []) {
-  const result = await client.execute({ sql, args: params });
-  if (result.rows.length === 0) return null;
-  
-  const row = result.rows[0];
+function _rowToObject(row, columns) {
   const obj = {};
-  result.columns.forEach((col, i) => {
-    obj[col] = row[i];
-  });
+  for (const col of columns) {
+    // Acceso por nombre de columna — garantizado en @libsql/client
+    obj[col] = row[col] !== undefined ? row[col] : row[columns.indexOf(col)];
+  }
   return obj;
 }
 
 /**
- * Obtiene todas las filas del resultado mapeadas a objetos.
+ * Obtiene la primera fila del resultado, o null si no hay resultados.
+ */
+async function get(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  if (!result.rows || result.rows.length === 0) return null;
+  return _rowToObject(result.rows[0], result.columns);
+}
+
+/**
+ * Obtiene todas las filas del resultado mapeadas a objetos JS planos.
  */
 async function all(sql, params = []) {
   const result = await client.execute({ sql, args: params });
-  return result.rows.map(row => {
-    const obj = {};
-    result.columns.forEach((col, i) => {
-      obj[col] = row[i];
-    });
-    return obj;
-  });
+  if (!result.rows || result.rows.length === 0) return [];
+  return result.rows.map(row => _rowToObject(row, result.columns));
 }
 
 module.exports = {
