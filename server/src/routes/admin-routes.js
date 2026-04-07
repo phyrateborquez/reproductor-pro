@@ -1,39 +1,87 @@
 const path = require('path');
 const { requireAuth } = require('../middleware/auth');
+const { verifyPassword } = require('../middleware/auth');
 const { validateVideoBody } = require('../middleware/validate');
-const PlaylistManager = require('../services/playlist-manager');
 
 function createAdminRoutes(playlistManager, syncEngine) {
   const express = require('express');
   const router = express.Router();
 
-  // Serve admin dashboard
+  // ================================================================
+  // Servir el panel de administración
+  // ================================================================
   router.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, '../../public/admin/index.html'));
   });
 
-  // All API routes require auth
+  // ================================================================
+  // CRIT-02: Rutas de Autenticación con Sesiones + Cookies HttpOnly
+  // ================================================================
+
+  // POST /api/auth/login — Verifica contraseña y crea sesión
+  router.post('/api/auth/login', (req, res) => {
+    const { password } = req.body;
+
+    if (!password || typeof password !== 'string') {
+      return res.status(400).json({ error: 'Contraseña requerida' });
+    }
+
+    if (!verifyPassword(password)) {
+      console.warn('[auth] Login fallido desde', req.ip);
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+
+    // Regenerar el ID de sesión al autenticar (previene Session Fixation)
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: 'Error al crear sesión' });
+      req.session.isAdmin = true;
+      console.log('[auth] Login exitoso desde', req.ip);
+      return res.json({ ok: true });
+    });
+  });
+
+  // POST /api/auth/logout — Destruye la sesión y borra la cookie
+  router.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) return res.status(500).json({ error: 'Error al cerrar sesión' });
+      res.clearCookie('rp.sid');
+      return res.json({ ok: true });
+    });
+  });
+
+  // GET /api/auth/status — Verifica si hay sesión activa (para checkAuth en frontend)
+  router.get('/api/auth/status', (req, res) => {
+    if (req.session && req.session.isAdmin === true) {
+      return res.json({ authenticated: true });
+    }
+    return res.json({ authenticated: false });
+  });
+
+  // ================================================================
+  // Rutas de API — todas protegidas por sesión
+  // ================================================================
   router.use('/api', requireAuth);
 
-  // GET /api/playlist - Return ordered playlist
+  // GET /api/playlist
   router.get('/api/playlist', (req, res) => {
     const playlist = playlistManager.getPlaylist();
     res.json(playlist);
   });
 
-  // POST /api/playlist - Add video to playlist
+  // POST /api/playlist — Agregar video
   router.post('/api/playlist', validateVideoBody, async (req, res) => {
     try {
       const { title, source_url, source_type, duration } = req.body;
       const video = await playlistManager.addVideo(title, source_url, source_type, duration);
       res.status(201).json(video);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[routes] Error al agregar video:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
 
-  // PUT /api/playlist/:id - Update video metadata
-  router.put('/api/playlist/:id', async (req, res) => {
+  // PUT /api/playlist/:id — Actualizar metadata
+  router.put('/api/playlist/:id', validateVideoBody, async (req, res) => {
     try {
       const video = await playlistManager.updateVideo(
         parseInt(req.params.id, 10),
@@ -42,39 +90,42 @@ function createAdminRoutes(playlistManager, syncEngine) {
       res.json(video);
     } catch (err) {
       if (err.message === 'Video not found') {
-        return res.status(404).json({ error: err.message });
+        return res.status(404).json({ error: 'Video no encontrado' });
       }
-      res.status(500).json({ error: err.message });
+      console.error('[routes] Error al actualizar video:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
 
-  // DELETE /api/playlist/:id - Remove from playlist
+  // DELETE /api/playlist/:id
   router.delete('/api/playlist/:id', async (req, res) => {
     try {
       await playlistManager.removeVideo(parseInt(req.params.id, 10));
       res.status(204).send();
     } catch (err) {
       if (err.message === 'Video not found') {
-        return res.status(404).json({ error: err.message });
+        return res.status(404).json({ error: 'Video no encontrado' });
       }
-      res.status(500).json({ error: err.message });
+      console.error('[routes] Error al eliminar video:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
 
-  // PUT /api/playlist/reorder - Reorder via array of IDs
+  // PUT /api/playlist/reorder
   router.put('/api/playlist/reorder', async (req, res) => {
     try {
       if (!Array.isArray(req.body)) {
-        return res.status(400).json({ error: 'Body must be an array of {id, orderIndex}' });
+        return res.status(400).json({ error: 'El body debe ser un array de {id, orderIndex}' });
       }
       await playlistManager.reorderPlaylist(req.body);
       res.status(204).send();
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[routes] Error al reordenar:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
   });
 
-  // GET /api/playback - Current playback info
+  // GET /api/playback
   router.get('/api/playback', (req, res) => {
     res.json(syncEngine.getState());
   });
@@ -83,7 +134,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   router.post('/api/playback/play', (req, res) => {
     const started = syncEngine.play();
     if (!started) {
-      return res.status(400).json({ error: 'No videos in playlist' });
+      return res.status(400).json({ error: 'No hay videos en la playlist' });
     }
     res.json(syncEngine.getState());
   });
@@ -104,7 +155,7 @@ function createAdminRoutes(playlistManager, syncEngine) {
   router.post('/api/playback/seek', (req, res) => {
     const position = parseFloat(req.body.position);
     if (isNaN(position) || position < 0) {
-      return res.status(400).json({ error: 'Valid position required' });
+      return res.status(400).json({ error: 'Posición válida requerida' });
     }
     syncEngine.seekTo(position);
     res.json(syncEngine.getState());

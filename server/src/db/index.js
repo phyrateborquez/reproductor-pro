@@ -1,108 +1,81 @@
-const initSqlJs = require('sql.js');
+const { createClient } = require('@libsql/client');
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 
-// Ensure data directory exists
-const dataDir = path.dirname(config.dbPath);
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+// Cliente de Turso (libSQL) — se inicializa una sola vez
+let client = null;
 
-// Load sql.js (WebAssembly)
-const SQL = require('sql.js');
-
-// Database instance
-let db = null;
-
-// Initialize database asynchronously
+/**
+ * Inicializa la conexión al cliente libSQL.
+ * En producción usa Turso (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN).
+ * En desarrollo usa un archivo SQLite local como fallback.
+ */
 async function initDatabase() {
-  // Initialize SQL.js
-  const sqlPromise = initSqlJs();
-  const SQL = await sqlPromise;
-  
-  // Load existing database if it exists, otherwise create new one
-  let dbData = null;
-  if (fs.existsSync(config.dbPath)) {
-    dbData = fs.readFileSync(config.dbPath);
-  }
-  
-  if (dbData) {
-    db = new SQL.Database(dbData);
+  if (config.tursoUrl && config.tursoAuthToken) {
+    // Modo producción: Turso en la nube
+    client = createClient({
+      url: config.tursoUrl,
+      authToken: config.tursoAuthToken,
+    });
+    console.log('[db] Conectado a Turso (remoto)');
   } else {
-    db = new SQL.Database();
+    // Modo desarrollo: SQLite local via libSQL (mismo driver, sin red)
+    const dataDir = path.dirname(config.dbPath);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    client = createClient({ url: `file:${config.dbPath}` });
+    console.log('[db] Conectado a SQLite local:', config.dbPath);
   }
-  
-  // Run migrations
+
+  // Ejecutar migración inicial (CREATE TABLE IF NOT EXISTS — idempotente)
   const migrationPath = path.join(__dirname, 'migrations', '001_initial.sql');
   const migration = fs.readFileSync(migrationPath, 'utf8');
-  db.run(migration);
-  
-  // Save to persist schema
-  saveDatabase();
-  
-  return db;
+
+  // Turso ejecuta scripts multi-statement como transacción con executeMultiple
+  await client.executeMultiple(migration);
+
+  console.log('[db] Migraciones aplicadas correctamente');
+  return client;
 }
 
-// Save database to file (call after any write operation)
-function saveDatabase() {
-  if (db) {
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(config.dbPath, buffer);
-  }
-}
-
-// Get database instance
+// Obtener el cliente (falla si no fue inicializado)
 function getDb() {
-  if (!db) {
-    throw new Error('Database not initialized. Call initDatabase() first.');
+  if (!client) {
+    throw new Error('Base de datos no inicializada. Llama a initDatabase() primero.');
   }
-  return db;
+  return client;
 }
 
-// Helper for synchronous prepare (wraps sql.js sync API)
-function prepare(sql) {
-  return db.prepare(sql);
+/**
+ * Ejecuta una query de escritura (INSERT, UPDATE, DELETE).
+ * @returns {ResultSet} resultado con lastInsertRowid, rowsAffected
+ */
+async function run(sql, params = []) {
+  return client.execute({ sql, args: params });
 }
 
-// Helper for running queries with params
-function run(sql, params = []) {
-  db.run(sql, params);
-  saveDatabase(); // Persist changes
+/**
+ * Obtiene la primera fila del resultado, o null si no hay resultados.
+ */
+async function get(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return result.rows.length > 0 ? result.rows[0] : null;
 }
 
-// Helper for getting single row
-function get(sql, params = []) {
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  if (stmt.step()) {
-    const row = stmt.getAsObject();
-    stmt.free();
-    return row;
-  }
-  stmt.free();
-  return null;
-}
-
-// Helper for getting all rows
-function all(sql, params = []) {
-  const stmt = db.prepare(sql);
-  stmt.bind(params);
-  const rows = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject());
-  }
-  stmt.free();
-  return rows;
+/**
+ * Obtiene todas las filas del resultado.
+ */
+async function all(sql, params = []) {
+  const result = await client.execute({ sql, args: params });
+  return result.rows;
 }
 
 module.exports = {
   initDatabase,
   getDb,
-  prepare,
   run,
   get,
   all,
-  saveDatabase
 };

@@ -3,55 +3,44 @@
  * Admin Application — ReproductorPro
  *
  * Admin dashboard client.
- * Handles authentication, playlist CRUD, playback controls,
- * and real-time client count via Socket.IO.
+ * Autenticación via Cookie HttpOnly (CRIT-02).
+ * Gestión de playlist y reproducción en tiempo real via Socket.IO.
  * ============================================================
  */
 
 /* ============================================================
-   1. API Helper — fetch wrapper with auth header
+   1. API Helper — fetch wrapper con cookies de sesión
+   La autenticación ya no usa sessionStorage ni headers manuales.
+   El navegador envía automáticamente la Cookie HttpOnly en cada
+   petición gracias a credentials: 'include'.
    ============================================================ */
 class ApiClient {
   constructor() {
     this.basePath = '';
   }
 
-  getPassword() {
-    return sessionStorage.getItem('adminPassword');
-  }
-
-  setPassword(password) {
-    sessionStorage.setItem('adminPassword', password);
-  }
-
-  clearPassword() {
-    sessionStorage.removeItem('adminPassword');
-  }
-
   async _fetch(path, options = {}) {
-    const password = this.getPassword();
     const headers = {
       'Content-Type': 'application/json',
-      ...(password && { 'X-Admin-Password': password }),
       ...options.headers,
     };
 
     const res = await fetch(`${this.basePath}${path}`, {
       ...options,
       headers,
+      credentials: 'include', // Envía la cookie de sesión HttpOnly automáticamente
     });
 
     if (res.status === 401) {
-      this.clearPassword();
       throw new Error('UNAUTHORIZED');
     }
 
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      throw new Error(body?.message || `HTTP ${res.status}`);
+      throw new Error(body?.error || body?.message || `HTTP ${res.status}`);
     }
 
-    // Handle 204 No Content
+    // 204 No Content — no hay body que parsear
     if (res.status === 204) return null;
 
     return res.json();
@@ -75,7 +64,8 @@ class ApiClient {
 }
 
 /* ============================================================
-   2. Auth Module
+   2. Auth Module — usa /api/auth/login y /api/auth/logout
+   La cookie es manejada por el navegador (HttpOnly, invisible a JS)
    ============================================================ */
 class AuthModule {
   constructor(api, onLogout) {
@@ -105,27 +95,31 @@ class AuthModule {
     this.loginError.classList.add('hidden');
 
     try {
-      // Test auth by fetching playlist
-      this.api.setPassword(password);
-      await this.api.get('/api/playlist');
-
+      // El servidor valida la contraseña y crea una Cookie HttpOnly de sesión.
+      // A partir de aquí, el navegador envía la cookie automáticamente.
+      await this.api.post('/api/auth/login', { password });
+      this.passwordInput.value = ''; // Limpiar el campo inmediatamente
       this._showDashboard();
     } catch (err) {
       if (err.message === 'UNAUTHORIZED') {
-        this.api.clearPassword();
         this.loginError.classList.remove('hidden');
         this.passwordInput.value = '';
         this.passwordInput.focus();
       } else {
-        console.error('Login error:', err);
+        console.error('[auth] Error en login:', err);
       }
     }
   }
 
-  _handleLogout() {
-    this.api.clearPassword();
-    this._showLogin();
-    if (this.onLogout) this.onLogout();
+  async _handleLogout() {
+    try {
+      await this.api.post('/api/auth/logout', {});
+    } catch (err) {
+      console.error('[auth] Error en logout:', err);
+    } finally {
+      this._showLogin();
+      if (this.onLogout) this.onLogout();
+    }
   }
 
   _showDashboard() {
@@ -140,20 +134,20 @@ class AuthModule {
     this.passwordInput.value = '';
   }
 
-  // Check if already authenticated on page load
+  // Verifica si ya hay una sesión activa al cargar la página
+  // (el servidor lo sabe por la cookie que envía el navegador)
   async checkAuth() {
-    const saved = this.api.getPassword();
-    if (!saved) return false;
-
     try {
-      await this.api.get('/api/playlist');
-      this._showDashboard();
-      return true;
+      const { authenticated } = await this.api.get('/api/auth/status');
+      if (authenticated) {
+        this._showDashboard();
+        return true;
+      }
     } catch {
-      this.api.clearPassword();
-      this._showLogin();
-      return false;
+      // Sin sesión activa — mostrar login
     }
+    this._showLogin();
+    return false;
   }
 }
 
@@ -736,6 +730,7 @@ class AdminApp {
    6. Initialize Application
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  const app = new AdminApp();
-  window.__adminApp = app; // Debug access
+  new AdminApp();
+  // window.__adminApp eliminado (MED-02): exponer la instancia
+  // globalmente permite a scripts maliciosos interactuar con la app.
 });
