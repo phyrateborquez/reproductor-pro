@@ -19,17 +19,17 @@ class SyncEngine {
     this.persistInterval = null;
   }
 
-  start() {
+  async start() {
     // Load persisted state
-    const saved = playbackRepo.get();
-    if (saved?.current_video_id) {
-      this.state.currentVideo = playlistRepo.getById(saved.current_video_id);
+    const saved = await playbackRepo.get();
+    if (saved && saved.current_video_id) {
+      this.state.currentVideo = await playlistRepo.getById(saved.current_video_id);
       this.state.position = saved.position;
       this.state.isPlaying = saved.is_playing === 1;
     }
 
     // Load playlist
-    this.state.playlist = playlistRepo.getAll();
+    this.state.playlist = await playlistRepo.getAll();
 
     // Start the leader loop
     this.loopInterval = setInterval(() => this._tick(), 1000);
@@ -60,10 +60,10 @@ class SyncEngine {
     if (this.loopInterval) clearInterval(this.loopInterval);
     if (this.broadcastInterval) clearInterval(this.broadcastInterval);
     if (this.persistInterval) clearInterval(this.persistInterval);
-    this._persistState(); // final save
+    this._persistState(); // final save (asynchronous fire-and-forget)
   }
 
-  _tick() {
+  async _tick() {
     if (!this.state.isPlaying || !this.state.currentVideo) return;
 
     const now = Date.now();
@@ -73,22 +73,22 @@ class SyncEngine {
 
     // Check if video ended
     if (this.state.position >= this.state.currentVideo.duration) {
-      this._advanceVideo();
+      await this._advanceVideo();
     }
   }
 
-  _advanceVideo() {
-    const next = playlistRepo.getNext(this.state.currentVideo.order_index);
+  async _advanceVideo() {
+    const next = await playlistRepo.getNext(this.state.currentVideo.order_index);
     if (next) {
       this.state.currentVideo = next;
     } else {
       // Loop: go back to first video
-      this.state.currentVideo = playlistRepo.getFirst();
+      this.state.currentVideo = await playlistRepo.getFirst();
     }
 
     if (!this.state.currentVideo) {
       this.state.isPlaying = false;
-      this._persistState();
+      await this._persistState();
       return;
     }
 
@@ -102,7 +102,7 @@ class SyncEngine {
       timestamp: Date.now(),
     });
 
-    this._persistState();
+    await this._persistState();
   }
 
   _broadcastState() {
@@ -115,22 +115,22 @@ class SyncEngine {
     });
   }
 
-  _persistState() {
-    playbackRepo.upsert(
+  async _persistState() {
+    await playbackRepo.upsert(
       this.state.currentVideo?.id || null,
       this.state.position,
       this.state.isPlaying
     );
   }
 
-  updatePlaylist() {
-    this.state.playlist = playlistRepo.getAll();
+  async updatePlaylist() {
+    this.state.playlist = await playlistRepo.getAll();
     this.io.emit('playlist:update', { playlist: this.state.playlist });
   }
 
-  play() {
+  async play() {
     if (!this.state.currentVideo) {
-      const first = playlistRepo.getFirst();
+      const first = await playlistRepo.getFirst();
       if (!first) return false;
       this.state.currentVideo = first;
       this.state.position = 0;
@@ -139,26 +139,26 @@ class SyncEngine {
     this.state.startedAt = Date.now();
     this.state.lastTick = Date.now();
     this._broadcastState();
-    this._persistState();
+    await this._persistState();
     return true;
   }
 
-  pause() {
+  async pause() {
     this.state.isPlaying = false;
     this._broadcastState();
-    this._persistState();
+    await this._persistState();
   }
 
-  skip() {
+  async skip() {
     if (!this.state.currentVideo) return;
-    this._advanceVideo();
+    await this._advanceVideo();
   }
 
-  seekTo(position) {
+  async seekTo(position) {
     this.state.position = Math.max(0, position);
     this.state.lastTick = Date.now();
     this._broadcastState();
-    this._persistState();
+    await this._persistState();
   }
 
   addClient(socketId) {

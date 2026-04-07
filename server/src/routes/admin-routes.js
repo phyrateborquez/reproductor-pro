@@ -63,9 +63,14 @@ function createAdminRoutes(playlistManager, syncEngine) {
   router.use('/api', requireAuth);
 
   // GET /api/playlist
-  router.get('/api/playlist', (req, res) => {
-    const playlist = playlistManager.getPlaylist();
-    res.json(playlist);
+  router.get('/api/playlist', async (req, res) => {
+    try {
+      const playlist = await playlistManager.getPlaylist();
+      res.json(playlist);
+    } catch (err) {
+      console.error('[routes] Error al obtener playlist:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
   });
 
   // POST /api/playlist — Agregar video
@@ -131,34 +136,54 @@ function createAdminRoutes(playlistManager, syncEngine) {
   });
 
   // POST /api/playback/play
-  router.post('/api/playback/play', (req, res) => {
-    const started = syncEngine.play();
-    if (!started) {
-      return res.status(400).json({ error: 'No hay videos en la playlist' });
+  router.post('/api/playback/play', async (req, res) => {
+    try {
+      const started = await syncEngine.play();
+      if (!started) {
+        return res.status(400).json({ error: 'No hay videos en la playlist' });
+      }
+      res.json(syncEngine.getState());
+    } catch (err) {
+      console.error('[routes] Error en playback:play:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
-    res.json(syncEngine.getState());
   });
 
   // POST /api/playback/pause
-  router.post('/api/playback/pause', (req, res) => {
-    syncEngine.pause();
-    res.json(syncEngine.getState());
+  router.post('/api/playback/pause', async (req, res) => {
+    try {
+      await syncEngine.pause();
+      res.json(syncEngine.getState());
+    } catch (err) {
+      console.error('[routes] Error en playback:pause:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
   });
 
   // POST /api/playback/skip
-  router.post('/api/playback/skip', (req, res) => {
-    syncEngine.skip();
-    res.json(syncEngine.getState());
+  router.post('/api/playback/skip', async (req, res) => {
+    try {
+      await syncEngine.skip();
+      res.json(syncEngine.getState());
+    } catch (err) {
+      console.error('[routes] Error en playback:skip:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
   });
 
   // POST /api/playback/seek
-  router.post('/api/playback/seek', (req, res) => {
-    const position = parseFloat(req.body.position);
-    if (isNaN(position) || position < 0) {
-      return res.status(400).json({ error: 'Posición válida requerida' });
+  router.post('/api/playback/seek', async (req, res) => {
+    try {
+      const position = parseFloat(req.body.position);
+      if (isNaN(position) || position < 0) {
+        return res.status(400).json({ error: 'Posición válida requerida' });
+      }
+      await syncEngine.seekTo(position);
+      res.json(syncEngine.getState());
+    } catch (err) {
+      console.error('[routes] Error en playback:seek:', err);
+      res.status(500).json({ error: 'Error interno del servidor' });
     }
-    syncEngine.seekTo(position);
-    res.json(syncEngine.getState());
   });
 
   return router;

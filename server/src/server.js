@@ -15,7 +15,7 @@ if (!config.adminPassword) {
 }
 
 async function start() {
-  // Initialize database (async for sql.js)
+  // Initialize database (async for libSQL/Turso)
   console.log('[db] Initializing database...');
   await db.initDatabase();
   console.log('[db] Database initialized');
@@ -28,13 +28,14 @@ async function start() {
     cors: {
       origin: config.allowedOrigins,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
     pingInterval: 10000,
     pingTimeout: 5000,
     transports: ['websocket', 'polling'],
   });
 
-  // Create Express app
+  // Create services
   const syncEngine = new SyncEngine(io);
   const playlistManager = new PlaylistManager(syncEngine);
   const app = createApp(syncEngine, playlistManager);
@@ -42,8 +43,8 @@ async function start() {
   // Wire socket handlers
   createSocketHandlers(io, syncEngine);
 
-  // Start sync engine
-  syncEngine.start();
+  // Start sync engine (now async)
+  await syncEngine.start();
 
   // Start economic data auto-fetch
   economicService.startAutoFetch();
