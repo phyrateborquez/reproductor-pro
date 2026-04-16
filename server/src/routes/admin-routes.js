@@ -76,8 +76,9 @@ function createAdminRoutes(playlistManager, syncEngine) {
   // POST /api/playlist — Agregar video
   router.post('/api/playlist', requireAuth, validateVideoBody, async (req, res) => {
     try {
-      const { title, source_url, source_type, duration } = req.body;
-      const video = await playlistManager.addVideo(title, source_url, source_type, duration);
+      const { title, source_url } = req.body;
+      const duration = Math.round(Number(req.body.duration)); // siempre entero de segundos
+      const video = await playlistManager.addVideo(title, source_url, duration);
       res.status(201).json(video);
     } catch (err) {
       console.error('[routes] Error al agregar video:', err);

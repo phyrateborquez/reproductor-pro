@@ -162,8 +162,8 @@ class PlaylistModule {
     this.addForm = document.getElementById('add-video-form');
     this.titleInput = document.getElementById('video-title');
     this.urlInput = document.getElementById('video-url');
-    this.typeSelect = document.getElementById('video-type');
-    this.durationInput = document.getElementById('video-duration');
+    this.durationMinutes = document.getElementById('duration-minutes');
+    this.durationSeconds = document.getElementById('duration-seconds');
     this.addBtn = document.getElementById('add-btn');
     this.feedback = document.getElementById('form-feedback');
 
@@ -177,7 +177,8 @@ class PlaylistModule {
     this.editId = document.getElementById('edit-id');
     this.editTitle = document.getElementById('edit-title');
     this.editUrl = document.getElementById('edit-url');
-    this.editDuration = document.getElementById('edit-duration');
+    this.editDurationMinutes = document.getElementById('edit-duration-minutes');
+    this.editDurationSeconds = document.getElementById('edit-duration-seconds');
     this.editCancel = document.getElementById('edit-cancel');
     this.editSave = document.getElementById('edit-save');
     this.modalClose = document.getElementById('modal-close');
@@ -193,9 +194,6 @@ class PlaylistModule {
   _bindEvents() {
     // Add video form
     this.addForm.addEventListener('submit', (e) => this._handleAdd(e));
-
-    // Auto-detect type from URL
-    this.urlInput.addEventListener('input', () => this._detectType());
 
     // Edit modal
     this.editCancel.addEventListener('click', () => this._closeEditModal());
@@ -231,16 +229,7 @@ class PlaylistModule {
     this.playlistBody.addEventListener('drop', (e) => this._onDrop(e));
   }
 
-  _detectType() {
-    const url = this.urlInput.value;
-    if (!url) return;
 
-    if (/youtube\.com|youtu\.be/i.test(url)) {
-      this.typeSelect.value = 'youtube';
-    } else if (/dailymotion\.com/i.test(url)) {
-      this.typeSelect.value = 'dailymotion';
-    }
-  }
 
   _extractDuration(url, type) {
     // Could auto-fetch duration from API in the future
@@ -255,17 +244,16 @@ class PlaylistModule {
 
     const title = this.titleInput.value.trim();
     const sourceUrl = this.urlInput.value.trim();
-    const sourceType = this.typeSelect.value;
-    const duration = parseInt(this.durationInput.value, 10);
+    const mins = parseInt(this.durationMinutes.value, 10) || 0;
+    const secs = parseInt(this.durationSeconds.value, 10) || 0;
+    const duration = mins * 60 + secs;
 
     // Client-side validation
     const errors = [];
     if (!title || title.length > 200) errors.push('Título requerido (máx 200 caracteres)');
-    if (!sourceUrl || !this._isValidUrl(sourceUrl)) errors.push('URL válida requerida');
-    if (!sourceType || !['youtube', 'dailymotion'].includes(sourceType)) {
-      errors.push('Plataforma inválida');
-    }
-    if (!duration || duration <= 0) errors.push('Duración debe ser mayor a 0');
+    if (!sourceUrl || !this._isValidUrl(sourceUrl)) errors.push('URL válida requerida de YouTube');
+    if (duration <= 0) errors.push('La duración debe ser mayor a 0 (al menos 1 segundo)');
+    if (secs < 0 || secs > 59) errors.push('Los segundos deben estar entre 0 y 59');
 
     if (errors.length) {
       this._showFeedback(errors.join('. '), 'error');
@@ -279,7 +267,6 @@ class PlaylistModule {
       await this.api.post('/api/playlist', {
         title,
         source_url: sourceUrl,
-        source_type: sourceType,
         duration,
       });
 
@@ -337,7 +324,6 @@ class PlaylistModule {
 
   _renderRow(video, index) {
     const duration = this._formatDuration(video.duration);
-    const source = video.source_type === 'youtube' ? 'YouTube' : 'Dailymotion';
 
     return `
       <tr draggable="true" data-id="${video.id}" data-index="${index}">
@@ -349,7 +335,6 @@ class PlaylistModule {
           ${this._escapeHtml(video.title)}
         </td>
         <td class="col-duration">${duration}</td>
-        <td class="col-source">${source}</td>
         <td class="col-actions">
           <button class="action-btn" data-action="edit" data-id="${video.id}" title="Editar">
             &#9998;
@@ -398,7 +383,9 @@ class PlaylistModule {
     this.editId.value = video.id;
     this.editTitle.value = video.title;
     this.editUrl.value = video.source_url;
-    this.editDuration.value = video.duration;
+    // Decompose total seconds into minutes + seconds
+    this.editDurationMinutes.value = Math.floor((video.duration || 0) / 60);
+    this.editDurationSeconds.value = (video.duration || 0) % 60;
 
     this.editModal.classList.remove('hidden');
     this.editTitle.focus();
@@ -415,10 +402,12 @@ class PlaylistModule {
     const id = parseInt(this.editId.value, 10);
     const title = this.editTitle.value.trim();
     const sourceUrl = this.editUrl.value.trim();
-    const duration = parseInt(this.editDuration.value, 10);
+    const mins = parseInt(this.editDurationMinutes.value, 10) || 0;
+    const secs = parseInt(this.editDurationSeconds.value, 10) || 0;
+    const duration = mins * 60 + secs;
 
-    if (!title || !sourceUrl || !duration || duration <= 0) {
-      alert('Todos los campos son requeridos');
+    if (!title || !sourceUrl || duration <= 0) {
+      alert('Todos los campos son requeridos y la duración debe ser mayor a 0');
       return;
     }
 

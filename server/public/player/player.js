@@ -173,166 +173,13 @@ class YouTubePlayer {
   }
 }
 
-/* ============================================================
-   2. Dailymotion Player Adapter
-   ============================================================ */
-class DailymotionPlayer {
-  constructor(container, videoId) {
-    this.container = container;
-    this.videoId = videoId;
-    this.player = null;
-    this.muted = false;
-    this._listeners = new Map();
-    this._ready = false;
 
-    this._createPlayer();
-  }
-
-  _createPlayer() {
-    // Load Dailymotion SDK if not already loaded
-    if (!window.DM) {
-      const tag = document.createElement('script');
-      tag.src = 'https://api.dmcdn.net/all.js';
-      document.head.appendChild(tag);
-    }
-
-    // Wait for SDK ready
-    const initPlayer = () => {
-      this.player = DM.player(this.container, {
-        video: this.videoId,
-        width: '100%',
-        height: '100%',
-        params: {
-          controls: false,
-          'ui-logo': false,
-          'ui-highlight': false,
-          autoplay: false,
-        },
-      });
-
-      this.player.addEventListener('apiready', () => {
-        this._ready = true;
-        this._emit('ready');
-      });
-
-      this.player.addEventListener('play', () => this._emit('stateChange', 'playing'));
-      this.player.addEventListener('pause', () => this._emit('stateChange', 'paused'));
-      this.player.addEventListener('ended', () => {
-        this._emit('stateChange', 'ended');
-        this._emit('ended');
-      });
-      this.player.addEventListener('seeked', () => this._emit('stateChange', 'playing'));
-      this.player.addEventListener('error', (e) => this._emit('error', e));
-    };
-
-    if (window.DM && window.DM.player) {
-      initPlayer();
-    } else {
-      // Poll for DM to be ready
-      const checkDM = setInterval(() => {
-        if (window.DM && window.DM.player) {
-          clearInterval(checkDM);
-          initPlayer();
-        }
-      }, 100);
-    }
-  }
-
-  loadVideo(videoId) {
-    this.videoId = videoId;
-    if (this.player && this._ready) {
-      this.player.load(videoId);
-    }
-  }
-
-  play() {
-    if (this.player && this._ready) {
-      this.player.play();
-    }
-  }
-
-  pause() {
-    if (this.player && this._ready) {
-      this.player.pause();
-    }
-  }
-
-  seekTo(seconds) {
-    if (this.player && this._ready) {
-      this.player.seek(seconds);
-    }
-  }
-
-  getPosition() {
-    if (this.player && this._ready) {
-      return this.player.currentTime || 0;
-    }
-    return 0;
-  }
-
-  getDuration() {
-    if (this.player && this._ready) {
-      return this.player.duration || 0;
-    }
-    return 0;
-  }
-
-  getState() {
-    if (!this.player || !this._ready) return 'unstarted';
-    if (this.player.ended) return 'ended';
-    if (this.player.seeking) return 'buffering';
-    if (this.player.paused) return 'paused';
-    if (this.player.playing) return 'playing';
-    return 'unknown';
-  }
-
-  setMuted(muted) {
-    this.muted = muted;
-    if (this.player) {
-      this.player.muted = muted;
-    }
-  }
-
-  setVolume(volume) {
-    if (this.player) {
-      this.player.volume = volume / 100;
-    }
-  }
-
-  destroy() {
-    if (this.player) {
-      this.player.destroy();
-      this.player = null;
-    }
-    this._listeners.clear();
-    this._ready = false;
-  }
-
-  on(event, callback) {
-    if (!this._listeners.has(event)) {
-      this._listeners.set(event, []);
-    }
-    this._listeners.get(event).push(callback);
-  }
-
-  _emit(event, data) {
-    const callbacks = this._listeners.get(event) || [];
-    callbacks.forEach((cb) => cb(data));
-  }
-}
 
 /* ============================================================
    3. Player Factory
    ============================================================ */
-function createPlayer(sourceType, container, videoId) {
-  switch (sourceType) {
-    case 'youtube':
-      return new YouTubePlayer(container, videoId);
-    case 'dailymotion':
-      return new DailymotionPlayer(container, videoId);
-    default:
-      throw new Error(`Unknown source type: ${sourceType}`);
-  }
+function createPlayer(container, videoId) {
+  return new YouTubePlayer(container, videoId);
 }
 
 /* ============================================================
@@ -345,9 +192,8 @@ function formatTime(seconds) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function formatSource(sourceType) {
-  const map = { youtube: 'YouTube', dailymotion: 'Dailymotion' };
-  return map[sourceType] || sourceType;
+function formatSource() {
+  return 'YouTube';
 }
 
 /* ============================================================
@@ -560,11 +406,12 @@ class PlayerApp {
 
     // Update UI
     this.videoTitle.textContent = video.title || 'Video sin título';
-    this.videoSource.textContent = formatSource(video.source_type);
+    // Source label hidden by design — uncomment to restore
+    // this.videoSource.textContent = formatSource(video.source_type);
     this._updateStatusBadge();
 
     // Extract video ID from URL
-    const videoId = this._extractVideoId(video.source_url, video.source_type);
+    const videoId = this._extractVideoId(video.source_url);
     if (!videoId) {
       this._handleVideoError({ message: 'URL de video inválida' });
       return;
@@ -575,7 +422,7 @@ class PlayerApp {
 
     // Create new player
     try {
-      this.currentPlayer = createPlayer(video.source_type, this.playerContainer, videoId);
+      this.currentPlayer = createPlayer(this.playerContainer, videoId);
 
       this.currentPlayer.on('ready', () => {
         this.bufferingIndicator.classList.add('hidden');
@@ -709,28 +556,18 @@ class PlayerApp {
   }
 
   /* --- Extract Video ID from URL --- */
-  _extractVideoId(url, sourceType) {
+  _extractVideoId(url) {
     if (!url) return null;
 
     try {
-      if (sourceType === 'youtube') {
-        // Handle various YouTube URL formats
-        const match = url.match(
-          /(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([\w-]{11})/
-        );
-        return match ? match[1] : null;
-      }
-
-      if (sourceType === 'dailymotion') {
-        // Dailymotion URL: https://www.dailymotion.com/video/xxxxx
-        const match = url.match(/dailymotion\.com\/video\/([a-zA-Z0-9]+)/);
-        return match ? match[1] : null;
-      }
+      // Handle various YouTube URL formats
+      const match = url.match(
+        /(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([\w-]{11})/
+      );
+      return match ? match[1] : null;
     } catch {
       return null;
     }
-
-    return null;
   }
 
 }

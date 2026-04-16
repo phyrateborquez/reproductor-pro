@@ -45,7 +45,6 @@
 
 html,
 body {
-  overflow: hidden; /* Elimina scrollbars en el iframe */
   background-color: var(--color-bg);
 }
 

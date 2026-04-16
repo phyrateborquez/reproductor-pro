@@ -69,6 +69,10 @@ Open:
 - Admin: http://localhost:3000/admin
 - Player: http://localhost:3000/player
 
+### Producción (Render)
+- **Admin Panel**: [https://reproductor-pro.onrender.com/admin/](https://reproductor-pro.onrender.com/admin/)
+- **Public Player**: [https://reproductor-pro.onrender.com/player/](https://reproductor-pro.onrender.com/player/)
+
 ### Production (Oracle Cloud / Ubuntu)
 
 ```bash
@@ -91,6 +95,12 @@ pm2 start deploy/ecosystem.config.js --env production
 pm2 save
 pm2 startup
 ```
+
+### Workflow de Actualización
+Para actualizar la versión en producción (Render):
+1. Realiza tus cambios localmente y pruébalos con `npm run dev`.
+2. Sube los cambios a la rama principal: `git push origin main`.
+3. Render detectará el cambio y desplegará la nueva versión automáticamente (CI/CD).
 
 ### HTTPS with Let's Encrypt
 
@@ -137,7 +147,7 @@ sudo certbot renew --dry-run
 
 ```html
 <iframe
-  src="https://yourdomain.com/player"
+  src="https://reproductor-pro.onrender.com/player"
   width="800"
   height="500"
   frameborder="0"

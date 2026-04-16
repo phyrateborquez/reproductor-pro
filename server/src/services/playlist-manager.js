@@ -5,8 +5,8 @@ class PlaylistManager {
     this.syncEngine = syncEngine;
   }
 
-  async addVideo(title, sourceUrl, sourceType, duration) {
-    const video = await playlistRepo.insert(title, sourceUrl, sourceType, duration);
+  async addVideo(title, sourceUrl, duration) {
+    const video = await playlistRepo.insert(title, sourceUrl, duration);
     // Update sync engine playlist
     if (this.syncEngine) {
       await this.syncEngine.updatePlaylist();
@@ -23,7 +23,6 @@ class PlaylistManager {
       id,
       updates.title || existing.title,
       updates.source_url || existing.source_url,
-      updates.source_type || existing.source_type,
       updates.duration || existing.duration
     );
     if (this.syncEngine) {

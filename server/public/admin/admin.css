@@ -149,6 +149,27 @@
   flex-shrink: 0;
 }
 
+/* Inline duration inputs */
+.duration-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.duration-min {
+  width: 64px;
+}
+
+.duration-sec {
+  width: 60px;
+}
+
+.duration-sep {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
 .form-feedback {
   font-size: 0.8rem;
   margin-top: 0.25rem;

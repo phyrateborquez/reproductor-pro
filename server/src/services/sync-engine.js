@@ -14,6 +14,7 @@ class SyncEngine {
       playlist: [],
     };
     this.clients = new Map(); // socketId → { lastHeartbeat, reportedPosition }
+    this.playedIds = new Set(); // IDs played in the current shuffle cycle
     this.loopInterval = null;
     this.broadcastInterval = null;
     this.persistInterval = null;
@@ -78,20 +79,29 @@ class SyncEngine {
   }
 
   async _advanceVideo() {
-    const next = await playlistRepo.getNext(this.state.currentVideo.order_index);
-    if (next) {
-      this.state.currentVideo = next;
-    } else {
-      // Loop: go back to first video
-      this.state.currentVideo = await playlistRepo.getFirst();
+    // Mark current video as played
+    if (this.state.currentVideo) {
+      this.playedIds.add(this.state.currentVideo.id);
     }
 
-    if (!this.state.currentVideo) {
+    // Reload playlist to account for any changes
+    this.state.playlist = await playlistRepo.getAll();
+
+    // If all videos played, reset the cycle (new shuffle)
+    if (this.playedIds.size >= this.state.playlist.length) {
+      this.playedIds.clear();
+      console.log('[sync] Shuffle cycle complete — restarting');
+    }
+
+    const next = await playlistRepo.getRandomExcluding(this.playedIds);
+
+    if (!next) {
       this.state.isPlaying = false;
       await this._persistState();
       return;
     }
 
+    this.state.currentVideo = next;
     this.state.position = 0;
     this.state.startedAt = Date.now();
 
@@ -130,7 +140,8 @@ class SyncEngine {
 
   async play() {
     if (!this.state.currentVideo) {
-      const first = await playlistRepo.getFirst();
+      // Pick a random first video
+      const first = await playlistRepo.getRandomExcluding(this.playedIds);
       if (!first) return false;
       this.state.currentVideo = first;
       this.state.position = 0;

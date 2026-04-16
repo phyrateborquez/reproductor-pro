@@ -300,11 +300,13 @@ El player es la página que ven los espectadores. Es de solo lectura.
 
 ### Autenticación
 
-Todas las rutas de API requieren el header `X-Admin-Password` con la contraseña correcta.
+Todas las rutas de API requieren autenticación basada en cookies HttpOnly tras el login.
 
-**Header requerido:**
-```
-X-Admin-Password: admin123
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{ "password": "<CONTRASEÑA>" }
 ```
 
 **Respuesta sin autenticación:**
@@ -847,7 +849,7 @@ Acceder: `http://IP_PUBLICA:3000/admin`
 
 ### Autenticación de Admin
 
-- Todas las rutas `/api/*` requieren el header `X-Admin-Password`
+- Todas las rutas `/api/*` requieren autenticación (excepto el player público).
 - La contraseña se valida con comparación de tiempo constante para evitar timing attacks
 - No hay sesión ni cookie — cada request debe incluir el header
 
@@ -968,7 +970,40 @@ Esto asegura que si el servidor se reinicia, puede continuar desde donde estaba.
 
 ---
 
-## 16. Licencia y Créditos
+---
+
+## 17. Flujo de Trabajo y Actualización (CI/CD)
+
+El proyecto utiliza un flujo de Integración y Despliegue Continuo (CI/CD) automatizado a través de GitHub y Render.
+
+### 1. Ciclo de Desarrollo
+1.  **Cambios Locales**: Se realizan las modificaciones en el código fuente (backend en `server/src` o frontend en `server/public`).
+2.  **Pruebas**: Se verifica el funcionamiento localmente usando el comando `npm run dev` dentro de la carpeta `server/`.
+3.  **Commit**: Se guardan los cambios usando Git:
+    ```bash
+    git add .
+    git commit -m "Descripción de los cambios"
+    ```
+
+### 2. Despliegue a Producción
+La instancia de producción en Render está vinculada a la rama `main` del repositorio en GitHub.
+
+1.  **Push**: Al ejecutar `git push origin main`, los cambios se suben al repositorio remoto.
+2.  **Webhooks**: GitHub notifica a Render sobre el nuevo commit.
+3.  **Build Automático**: Render inicia automáticamente un nuevo "Deploy":
+    - Descarga la última versión del código.
+    - Ejecuta `npm install` para actualizar dependencias.
+    - Reinicia el proceso de Node.js.
+4.  **Zero-Downtime**: Render intenta mantener la versión anterior activa hasta que la nueva esté lista para recibir tráfico.
+
+### 3. Persistencia de Datos
+Gracias al uso de **Turso (libSQL)** en producción, la base de datos es externa al sistema de archivos efímero de Render. Esto garantiza que:
+- La playlist no se pierda al reiniciar el servidor.
+- El estado de reproducción (posición del video) se mantenga sincronizado incluso después de una actualización de código.
+
+---
+
+## 18. Licencia y Créditos
 
 Este proyecto fue desarrollado como una solución de video sincronizado de código abierto.
 

@@ -24,10 +24,10 @@ function createApp(syncEngine, playlistManager) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        // Scripts permitidos: propios + YouTube + Dailymotion SDK
-        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com", "https://api.dmcdn.net"],
-        // Iframes que EL PLAYER puede mostrar (YouTube, Dailymotion)
-        frameSrc: ["'self'", "https://www.youtube.com", "https://www.dailymotion.com"],
+        // Scripts permitidos: propios + YouTube
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://www.youtube.com", "https://s.ytimg.com"],
+        // Iframes que EL PLAYER puede mostrar (YouTube)
+        frameSrc: ["'self'", "https://www.youtube.com"],
         // Quién puede embeber ESTE SERVIDOR en un iframe (FuturoAlternativo)
         frameAncestors: ["'self'", "https://www.futuroalternativo.net", "https://futuroalternativo.net"],
         imgSrc: ["'self'", "data:", "https://*"],

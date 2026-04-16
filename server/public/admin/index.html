@@ -86,22 +86,28 @@
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label for="video-type">Plataforma</label>
-                <select id="video-type" class="form-select" required>
-                  <option value="youtube">YouTube</option>
-                  <option value="dailymotion">Dailymotion</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="video-duration">Duración (segundos)</label>
-                <input
-                  type="number"
-                  id="video-duration"
-                  class="form-input"
-                  placeholder="300"
-                  min="1"
-                  required
-                >
+                <label>Duración</label>
+                <div class="duration-inputs">
+                  <input
+                    type="number"
+                    id="duration-minutes"
+                    class="form-input duration-min"
+                    placeholder="0"
+                    min="0"
+                    title="Minutos"
+                  >
+                  <span class="duration-sep">m</span>
+                  <input
+                    type="number"
+                    id="duration-seconds"
+                    class="form-input duration-sec"
+                    placeholder="00"
+                    min="0"
+                    max="59"
+                    title="Segundos"
+                  >
+                  <span class="duration-sep">s</span>
+                </div>
               </div>
               <div class="form-group form-group-btn">
                 <label>&nbsp;</label>
@@ -131,7 +137,6 @@
                 <th class="col-drag"></th>
                 <th class="col-title">Título</th>
                 <th class="col-duration">Duración</th>
-                <th class="col-source">Fuente</th>
                 <th class="col-actions">Acciones</th>
               </tr>
             </thead>
@@ -191,8 +196,13 @@
             <input type="url" id="edit-url" class="form-input" required>
           </div>
           <div class="form-group">
-            <label for="edit-duration">Duración (segundos)</label>
-            <input type="number" id="edit-duration" class="form-input" min="1" required>
+            <label>Duración</label>
+            <div class="duration-inputs">
+              <input type="number" id="edit-duration-minutes" class="form-input duration-min" placeholder="0" min="0" title="Minutos">
+              <span class="duration-sep">m</span>
+              <input type="number" id="edit-duration-seconds" class="form-input duration-sec" placeholder="00" min="0" max="59" title="Segundos">
+              <span class="duration-sep">s</span>
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" id="edit-cancel" class="btn btn-secondary">Cancelar</button>

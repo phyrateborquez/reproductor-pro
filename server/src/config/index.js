@@ -25,7 +25,6 @@ module.exports = {
         : ['http://localhost:3000']),
 
   dbPath: process.env.DB_PATH || path.join(__dirname, '../../data/reproductor.db'),
-  coingeckoUrl: process.env.COINGECKO_URL || 'https://api.coingecko.com/api/v3/simple/price',
   driftThreshold: parseFloat(process.env.DRIFT_THRESHOLD) || 1,
   broadcastInterval: parseInt(process.env.BROADCAST_INTERVAL, 10) || 2000,
   isProduction,

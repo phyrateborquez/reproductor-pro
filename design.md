@@ -169,16 +169,12 @@ When the playlist changes, the manager calls `syncEngine.updatePlaylist()` which
 | GET | `/api/playback` | getPlaybackState | Yes | Current playback info |
 
 **Auth middleware (`auth.js`):**
-Simple password check via header. The password is stored in `ADMIN_PASSWORD` env var.
-
-```
-Request header: X-Admin-Password: <password>
+Secure cookies (HTTPOnly) for admin authentication. The password is stored in `ADMIN_PASSWORD` env var.
 If missing or wrong → 401 Unauthorized
-```
 
-Why header instead of session: No state to manage, works with simple fetch calls from the admin JS, no cookies needed.
+---
 
-### 2.6 Public Routes (`public-routes.js`)
+## 2.6 Public Routes (`public-routes.js`)
 
 | Method | Path | Handler | Auth | Description |
 |--------|------|---------|------|-------------|
@@ -591,10 +587,8 @@ On client connect:
 ### 6.2 Authentication
 
 - Password stored in `ADMIN_PASSWORD` environment variable
-- Admin page shows a login form if not authenticated
-- On successful login, the password is stored in `sessionStorage` (not localStorage — cleared on tab close)
-- Every API request includes `X-Admin-Password` header
-- Server validates on every request (stateless, no sessions to manage)
+- On successful login, an HTTPOnly cookie is issued (express-session)
+- Every API request is protected by the `requireAuth` middleware)
 
 **Login flow:**
 ```
